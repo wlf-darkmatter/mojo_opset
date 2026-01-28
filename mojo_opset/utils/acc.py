@@ -19,8 +19,8 @@ def check_tol_diff(
         mixed_tol: If true, atol, rtol and ptol are ignored.
     """
     if isinstance(norm, tuple) or isinstance(norm, list):
-        for norm, ref in zip(norm, ref):
-            check_tol_diff(norm, ref, atol, rtol, ptol, mixed_tol)
+        for norm_i, ref_i in zip(norm, ref):
+            check_tol_diff(norm_i, ref_i, atol, rtol, ptol, mixed_tol)
 
     if mixed_tol:
         mask = ref.abs() < 1.0
