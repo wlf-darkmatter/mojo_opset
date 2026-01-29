@@ -60,7 +60,7 @@ k_grouped_matmul_impl = getattr(ttx_backend_module, "k_grouped_matmul_impl")
 
 store_paged_kv_impl = getattr(ttx_backend_module, "store_paged_kv_impl")
 
-lightning_index_impl = getattr(ttx_backend_module, "lightning_index_impl")
+lightning_indexer_impl = getattr(ttx_backend_module, "lightning_indexer_impl")
 
 if os.getenv("MOJO_RUN_MODE", "EAGER") == "COMPILE":
     assert torch.version.__version__ >= "2.7.0", "Work with torch.compile request your torch version >= 2.7.0"
@@ -679,19 +679,19 @@ if os.getenv("MOJO_RUN_MODE", "EAGER") == "COMPILE":
         return torch.empty_like(key_cache), torch.empty_like(value_cache)
 
     # ====================================
-    # Register Lightning_index
+    # Register lightning_indexer
     # ====================================
-    @torch.library.custom_op("ttx::lightning_index", mutates_args={})
-    def lightning_index(
+    @torch.library.custom_op("ttx::lightning_indexer", mutates_args={})
+    def lightning_indexer(
         query: torch.Tensor,
         query_scale: torch.Tensor,
         key: torch.Tensor,
         key_scale: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        return lightning_index_impl(query, query_scale, key, key_scale)
+        return lightning_indexer_impl(query, query_scale, key, key_scale)
     
-    @lightning_index.register_fake
-    def lightning_index_fake(
+    @lightning_indexer.register_fake
+    def lightning_indexer_fake(
         query: torch.Tensor,
         query_scale: torch.Tensor,
         key: torch.Tensor,
@@ -730,4 +730,4 @@ else:
     m_grouped_matmul = m_grouped_matmul_impl
     k_grouped_matmul = k_grouped_matmul_impl
     store_paged_kv = store_paged_kv_impl
-    lightning_index = lightning_index_impl
+    lightning_indexer = lightning_indexer_impl

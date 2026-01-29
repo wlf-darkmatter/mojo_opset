@@ -4,10 +4,10 @@ from typing import Optional
 from ..operator import MojoOperator
 
 
-class MojoLightningIndex(MojoOperator):
+class MojoLightningIndexer(MojoOperator):
 
     def __init__(self):
-        pass
+        super().__init__()
 
     def forward(
         self,
