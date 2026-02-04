@@ -359,6 +359,40 @@ if os.getenv("MOJO_RUN_MODE", "EAGER") == "COMPILE":
         return torch.empty_like(dq), torch.empty_like(dk)
 
     # ====================================
+    # Register Quant
+    # ====================================
+
+    @torch.library.custom_op("ttx::quant_int8_infer", mutates_args={})
+    def quant_int8_infer(
+        input_tensor: torch.Tensor,
+        scale_tensor: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        return quant_int8_infer_impl(input_tensor, scale_tensor)
+
+    @quant_int8_infer.register_fake
+    def quant_int8_infer_fake(
+        input_tensor: torch.Tensor,
+        scale_tensor: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        batch, seqlen, _ = input_tensor.shape
+
+        return torch.empty_like(input_tensor, dtype=torch.int8), torch.empty(batch, seqlen, dtype=torch.float32)
+
+    # ====================================
+    # Register Indexer_rope
+    # ====================================
+
+    @torch.library.custom_op("ttx::indexer_rope", mutates_args={})
+    def indexer_rope(
+        q: torch.Tensor,  # [BNSD]
+        k: torch.Tensor,  # [BSD]
+        cos: torch.Tensor,  # [BSD]
+        sin: torch.Tensor,  # [BSD]
+        rope_head_dim: int = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:  # [BNSD]
+        return indexer_rope_impl(q, k, cos, sin, rope_head_dim)
+
+    # ====================================
     # Register rmsnorm
     # ====================================
 
@@ -499,9 +533,7 @@ if os.getenv("MOJO_RUN_MODE", "EAGER") == "COMPILE":
     # NOTE: Since custom_op does not support input/output aliasing, we register the
     # operator manually using torch.library.impl.
     fused_linear_cross_entropy_bwd_schema = (
-        "(Tensor grad_output, Tensor(a!) grad_input, "
-        "Tensor(a!)? grad_weight=None, Tensor(a!)? grad_bias=None) -> "
-        "(Tensor(a) grad_input, Tensor(a)? grad_weight, Tensor(a)? grad_bias)"
+        "(Tensor grad_output, Tensor(a!) grad_input, " "Tensor(a!)? grad_weight=None, Tensor(a!)? grad_bias=None) -> " "(Tensor(a) grad_input, Tensor(a)? grad_weight, Tensor(a)? grad_bias)"
     )
     torch.library.define("ttx::fused_linear_cross_entropy_bwd", fused_linear_cross_entropy_bwd_schema)
 
@@ -755,10 +787,13 @@ else:
     silu_bwd = silu_bwd_impl
     swiglu_fwd = swiglu_fwd_impl
     swiglu_bwd = swiglu_bwd_impl
+    indexer_rotate_activation = indexer_rotate_activation_impl
     paged_attention_prefill = paged_attention_prefill_impl
     paged_attention_decode = paged_attention_decode_impl
     rope_fwd = rope_fwd_impl
     rope_bwd = rope_bwd_impl
+    indexer_rope = indexer_rope_impl
+    quant_int8_infer = quant_int8_infer_impl
     rmsnorm_fwd = rmsnorm_fwd_impl
     rmsnorm_bwd = rmsnorm_bwd_impl
     rmsnorm_infer = rmsnorm_infer_impl
@@ -776,6 +811,7 @@ else:
     sdpa_bwd = sdpa_bwd_impl
     diffusion_attention_fwd = diffusion_attention_fwd_impl
     diffusion_attention_bwd = diffusion_attention_bwd_impl
+    matmul = matmul_impl
     m_grouped_matmul = m_grouped_matmul_impl
     k_grouped_matmul = k_grouped_matmul_impl
     store_paged_kv = store_paged_kv_impl

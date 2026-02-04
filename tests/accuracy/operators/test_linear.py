@@ -1,14 +1,21 @@
 import random
-
+import os
 import pytest
 import torch
 
+from mojo_opset.utils.platform import get_platform
 from tests.utils import bypass_not_implemented
 from tests.utils import get_platform
 from tests.utils import auto_switch_platform
 
-from mojo_opset import MojoGroupLinear
+from mojo_opset import MojoLinear, MojoGroupLinear
 from mojo_opset import MojoQuantGroupLinearReduceSum
+
+dtype_str_map = {
+    "bfloat16": torch.bfloat16,
+    "float32": torch.float32,
+    "float16": torch.float16,
+}
 
 
 def generate_random_list(length, total_sum):
@@ -41,6 +48,59 @@ def generate_quant_group_linear_data(
     x1_scale = torch.randn(b, m, dtype=torch.float32)
     x2_scale = torch.randn(n, dtype=torch.float32).to(x2_scale_dtype)
     return x1, weight, x1_scale, x2_scale
+
+
+@pytest.mark.parametrize(
+    "batch_size, M, N, K, dtype",
+    [
+        (
+            batch_size,
+            M,
+            N,
+            K,
+            dtype,
+        )
+        for M, N in [
+            (1024, 1024),
+            (2048, 2048),
+            (4096, 4096),
+            (4096, 4096),
+            (8192, 8192),
+            (1, 32 * 1024),
+            (8, 32 * 1024),
+            (1, 128 * 1024),
+        ]
+        for K in [333, 4096, 7168]
+        for batch_size in [1, 8, 32]
+        for dtype in ["bfloat16", "float16", "float32"]
+    ],
+)
+@auto_switch_platform()
+@bypass_not_implemented
+def test_gemm(batch_size, M, N, K, dtype):
+    device = get_platform()
+    map_tol = {
+        "bfloat16": (1.6e-2, 1e-5, 1.0),
+        "float16": (1e-3, 1e-5, 1.0),
+        "float32": (1.3e-6, 1e-5, 1.0),
+    }
+    if device == "npu":
+        os.environ["CLOSE_MATMUL_K_SHIFT"] = "1"
+    atol, rtol, ptol = map_tol[dtype]
+    dtype = dtype_str_map[dtype]
+
+    x = torch.randn(batch_size, M, K, device=device, dtype=dtype)  # BNSD or TND
+    weight = torch.randn(N, K, device=device, dtype=dtype)
+
+    gemm = MojoLinear(
+        weight=weight,
+    )
+
+    gemm_ref = MojoLinear._registry.get("torch")(
+        weight=weight,
+    )
+
+    gemm.forward_diff_with(gemm_ref, x, atol=atol, rtol=rtol, ptol=ptol)
 
 
 @pytest.mark.parametrize(
