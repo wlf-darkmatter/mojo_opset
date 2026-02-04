@@ -14,6 +14,7 @@ from .fused_linear_cross_entropy import fused_linear_cross_entropy_fwd_impl
 from .gelu import gelu_bwd_impl
 from .gelu import gelu_fwd_impl
 from .gemm import matmul_impl
+from .gemm import matmul_impl
 from .group_gemm import k_grouped_matmul_impl
 from .group_gemm import m_grouped_matmul_impl
 from .kv_cache import store_paged_kv_impl
@@ -25,6 +26,7 @@ from .rmsnorm import rmsnorm_bwd_impl
 from .rmsnorm import rmsnorm_fwd_impl
 from .rmsnorm import rmsnorm_infer_impl
 from .rope import rope_bwd_impl
+from .indexer_rotate_activation import indexer_rotate_activation_impl
 from .rope import rope_fwd_impl
 from .indexer_rotate_activation import indexer_rotate_activation_impl
 from .indexer_rope import indexer_rope_impl
@@ -42,6 +44,7 @@ from .silu import silu_fwd_impl
 from .store_lowrank import store_label_cache_infer_impl
 from .swiglu import swiglu_bwd_impl
 from .swiglu import swiglu_fwd_impl
+from .lightning_indexer import lightning_indexer_impl
 
 __all__ = [
     "causal_conv1d_update_bdt_impl",
@@ -68,6 +71,7 @@ __all__ = [
     "rope_fwd_impl",
     "silu_bwd_impl",
     "silu_fwd_impl",
+    "indexer_rotate_activation_impl",
     "swiglu_bwd_impl",
     "swiglu_fwd_impl",
     "sdpa_infer_impl",

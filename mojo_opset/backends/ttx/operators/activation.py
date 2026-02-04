@@ -9,6 +9,7 @@ from mojo_opset.core import MojoGelu
 from mojo_opset.core import MojoSilu
 from mojo_opset.core import MojoSwiGLU
 from mojo_opset.core import MojoIndexerRotateActivation
+from mojo_opset.core import MojoIndexerRotateActivation
 
 
 class TTXGelu(MojoGelu):
