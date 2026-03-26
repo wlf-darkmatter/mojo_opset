@@ -63,7 +63,7 @@ from .operators.embedding import MojoRelativeEmbedding
 """ quantize """
 from .operators.quantize import MojoDequant
 from .operators.quantize import MojoQuant
-from .operators.quantize import MojoQuantInt8
+from .operators.quantize import MojoQuantIndexer
 
 """ moe """
 from .operators.moe import MojoMoE
@@ -157,7 +157,7 @@ __all__ = [
     "MojoQuantGroupLinearReduceSum",
 
     "MojoQuant",
-    "MojoQuantInt8",
+    "MojoQuantIndexer",
     "MojoDequant",
 
     "MojoEmbedding",

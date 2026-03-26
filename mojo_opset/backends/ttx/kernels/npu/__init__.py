@@ -13,15 +13,13 @@ from .fused_linear_cross_entropy import fused_linear_cross_entropy_bwd_impl
 from .fused_linear_cross_entropy import fused_linear_cross_entropy_fwd_impl
 from .gelu import gelu_bwd_impl
 from .gelu import gelu_fwd_impl
-from .gemm import matmul_impl
-from .gemm import matmul_impl
 from .group_gemm import k_grouped_matmul_impl
 from .group_gemm import m_grouped_matmul_impl
 from .kv_cache import store_paged_kv_impl
 from .layernorm import layernorm_bwd_impl
 from .layernorm import layernorm_fwd_impl
 from .layernorm import layernorm_infer_impl
-from .quant import quant_int8_infer_impl
+from .quant import quant_infer_impl
 from .rmsnorm import rmsnorm_bwd_impl
 from .rmsnorm import rmsnorm_fwd_impl
 from .rmsnorm import rmsnorm_infer_impl
@@ -79,9 +77,8 @@ __all__ = [
     "sdpa_bwd_impl",
     "indexer_rotate_activation_impl",
     "lightning_indexer_impl",
-    "quant_int8_infer_impl",
+    "quant_infer_impl",
     "indexer_rope_impl",
-    "matmul_impl",
     "diffusion_attention_fwd_impl",
     "diffusion_attention_bwd_impl",
     "m_grouped_matmul_impl",

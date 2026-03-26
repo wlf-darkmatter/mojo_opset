@@ -1,4 +1,3 @@
-from tkinter import X
 import torch
 
 from mojo_opset.backends.ttx.kernels import m_grouped_matmul
@@ -43,22 +42,3 @@ class TTXGroupGemm(MojoGroupGemm):
         )
 
         return C
-
-
-class TTXLinear(MojoLinear):
-    supported_platforms_list = ["npu"]
-
-    def forward(self, input: torch.Tensor, bias: torch.Tensor = None) -> torch.Tensor:
-        in_dim = self.weight.shape[1]
-        weight = self.weight
-        if input.shape[-1] != in_dim:
-            raise ValueError(f"input should have last dim {in_dim}, but got {input.shape[-1]}")
-        if input.ndim not in (3, 4):
-            raise ValueError(f"Expected BNSD when is_varlen=False; got shape {tuple(input.shape)}")
-
-        #* auto increase/convert weight dtype
-        if input.dtype != self.weight.dtype:
-            if input.dtype.itemsize >= self.weight.dtype.itemsize:
-                weight = self.weight.to(input.dtype)
-
-        return matmul(input, weight, bias)

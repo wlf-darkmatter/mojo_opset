@@ -4,7 +4,8 @@ import pytest
 import torch
 
 from mojo_opset import MojoLightningIndexer
-from mojo_opset.experimental import MojoIndexer
+from mojo_opset.backends.ttx.operators.indexer import TTXIndexer
+from mojo_opset.experimental.operators.indexer import MojoIndexer
 from mojo_opset.utils.platform import get_platform
 from tests.utils import auto_switch_platform, bypass_not_implemented
 
@@ -93,11 +94,11 @@ def test_indexer(batch, q_seq_len, head_dim, dim, q_lora_rank, dummy_tensor, dty
     indexer_ref.to(dtype=dtype, device=device)
 
     # * ===========================  init weight  ===========================
-    ##* wq_b MojoLinear
+    ##* wq_b nn.Linear
     indexer_ref.wq_b.weight.data.copy_(torch.randn_like(indexer_ref.wq_b.weight.data))
     if indexer_ref.wq_b.bias is not None:
         indexer_ref.wq_b.bias.data.copy_(torch.randn_like(indexer_ref.wq_b.bias.data))
-    ##* wk MojoLinear
+    ##* wk nn.Linear
     indexer_ref.wk.weight.data.copy_(torch.randn_like(indexer_ref.wk.weight.data))
     if indexer_ref.wk.bias is not None:
         indexer_ref.wk.bias.data.copy_(torch.randn_like(indexer_ref.wk.bias.data))
@@ -105,7 +106,7 @@ def test_indexer(batch, q_seq_len, head_dim, dim, q_lora_rank, dummy_tensor, dty
     indexer_ref.k_norm.weight.data.copy_(torch.randn_like(indexer_ref.k_norm.weight.data))
     if indexer_ref.k_norm.bias is not None:
         indexer_ref.k_norm.bias.data.copy_(torch.randn_like(indexer_ref.k_norm.bias.data))
-    ##* weights_proj MojoLinear
+    ##* weights_proj nn.Linear
     indexer_ref.weights_proj.weight.data.copy_(torch.randn_like(indexer_ref.weights_proj.weight.data))
     if indexer_ref.weights_proj.bias is not None:
         indexer_ref.weights_proj.bias.data.copy_(torch.randn_like(indexer_ref.weights_proj.bias.data))

@@ -1,14 +1,17 @@
 import math
-from typing import Any, Optional, Tuple
+from typing import Optional
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from scipy.linalg import hadamard
 
-from mojo_opset.core import MojoIndexerRoPE, MojoIndexerRotateActivation, MojoLayerNorm, MojoLightningIndexer, MojoLinear, MojoQuant, MojoQuantInt8
+from mojo_opset.core import (
+    MojoIndexerRoPE,
+    MojoIndexerRotateActivation,
+    MojoLayerNorm,
+    MojoLightningIndexer,
+    MojoQuantIndexer,
+)
 from mojo_opset.core.operator import MojoOperator
-from mojo_opset.utils.platform import get_platform
 
 
 class MojoIndexer(MojoOperator):
@@ -34,12 +37,12 @@ class MojoIndexer(MojoOperator):
         self.rope_head_dim = qk_rope_head_dim
         self.topk = topk
         self.q_lora_rank = q_lora_rank
-        self.wq_b = MojoLinear(weight=nn.Parameter(torch.empty(n_heads * head_dim, q_lora_rank)))
-        self.wk = MojoLinear(weight=nn.Parameter(torch.empty(self.head_dim, self.dim)))
+        self.wq_b = nn.Linear(q_lora_rank, n_heads * head_dim, bias=False)
+        self.wk = nn.Linear(self.dim, self.head_dim, bias=False)
 
         self.k_norm = MojoLayerNorm(self.head_dim)
         # weights_proj in the checkpoint is stored in bf16, while the parameters here are stored in fp32 for convenient.
-        self.weights_proj = MojoLinear(weight=nn.Parameter(torch.empty((self.n_heads, self.dim), dtype=torch.float32)))
+        self.weights_proj = nn.Linear(self.dim, self.n_heads, bias=False)
         self.softmax_scale = self.head_dim**-0.5
         self.scale_fmt = scale_fmt
 
@@ -52,10 +55,8 @@ class MojoIndexer(MojoOperator):
 
         self.rope = MojoIndexerRoPE()
         self.activation = MojoIndexerRotateActivation()
-        if get_platform() == "npu":
-            self.quant = MojoQuantInt8()
-        else:
-            self.quant = MojoQuant()
+        self.quant = MojoQuantIndexer()
+
         self.lightning_indexer = MojoLightningIndexer()
 
     def forward(self, x: torch.Tensor, qr: torch.Tensor, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor]):
@@ -79,6 +80,8 @@ class MojoIndexer(MojoOperator):
 
         q_quant, q_scale = self.quant(q, None)
         k_quant, k_scale = self.quant(k, None)
+        if k_scale.dim() == 3:
+            k_scale = k_scale.amax(dim=-1)
         self.k_cache[:bsz, start_pos:end_pos] = k_quant
         self.k_scale_cache[:bsz, start_pos:end_pos] = k_scale
 

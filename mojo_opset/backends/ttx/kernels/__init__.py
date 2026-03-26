@@ -36,7 +36,7 @@ silu_bwd_impl = _get_kernel_impl(ttx_backend_module, "silu_bwd_impl")
 
 indexer_rotate_activation_impl = _get_kernel_impl(ttx_backend_module, "indexer_rotate_activation_impl")
 indexer_rope_impl = _get_kernel_impl(ttx_backend_module, "indexer_rope_impl")
-quant_int8_infer_impl = _get_kernel_impl(ttx_backend_module, "quant_int8_infer_impl")
+quant_infer_impl = _get_kernel_impl(ttx_backend_module, "quant_infer_impl")
 lightning_indexer_impl = _get_kernel_impl(ttx_backend_module, "lightning_indexer_impl")
 
 rope_fwd_impl = _get_kernel_impl(ttx_backend_module, "rope_fwd_impl")
@@ -184,26 +184,6 @@ if os.getenv("MOJO_RUN_MODE", "EAGER") == "COMPILE":
     def indexer_rotate_activation(x: torch.Tensor) -> torch.Tensor:
         return torch.empty_like(x)
 
-
-    # ====================================
-    # Register Quant
-    # ====================================
-
-    @torch.library.custom_op("ttx::quant_int8_infer", mutates_args={})
-    def quant_int8_infer(
-        input_tensor: torch.Tensor,
-        scale_tensor: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        return quant_int8_infer_impl(input_tensor, scale_tensor)
-
-    @quant_int8_infer.register_fake
-    def quant_int8_infer_fake(
-        input_tensor: torch.Tensor,
-        scale_tensor: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        batch, seqlen, _ = input_tensor.shape
-
-        return torch.empty_like(input_tensor, dtype=torch.int8), torch.empty(batch, seqlen, dtype=torch.float32)
 
     # ====================================
     # Register Indexer_rope
@@ -362,15 +342,15 @@ if os.getenv("MOJO_RUN_MODE", "EAGER") == "COMPILE":
     # Register Quant
     # ====================================
 
-    @torch.library.custom_op("ttx::quant_int8_infer", mutates_args={})
-    def quant_int8_infer(
+    @torch.library.custom_op("ttx::quant_infer", mutates_args={})
+    def quant_infer(
         input_tensor: torch.Tensor,
         scale_tensor: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        return quant_int8_infer_impl(input_tensor, scale_tensor)
+        return quant_infer_impl(input_tensor, scale_tensor)
 
-    @quant_int8_infer.register_fake
-    def quant_int8_infer_fake(
+    @quant_infer.register_fake
+    def quant_infer_fake(
         input_tensor: torch.Tensor,
         scale_tensor: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -793,7 +773,6 @@ else:
     rope_fwd = rope_fwd_impl
     rope_bwd = rope_bwd_impl
     indexer_rope = indexer_rope_impl
-    quant_int8_infer = quant_int8_infer_impl
     rmsnorm_fwd = rmsnorm_fwd_impl
     rmsnorm_bwd = rmsnorm_bwd_impl
     rmsnorm_infer = rmsnorm_infer_impl
@@ -811,7 +790,6 @@ else:
     sdpa_bwd = sdpa_bwd_impl
     diffusion_attention_fwd = diffusion_attention_fwd_impl
     diffusion_attention_bwd = diffusion_attention_bwd_impl
-    matmul = matmul_impl
     m_grouped_matmul = m_grouped_matmul_impl
     k_grouped_matmul = k_grouped_matmul_impl
     store_paged_kv = store_paged_kv_impl
@@ -823,5 +801,5 @@ else:
     top_p_sampling = top_p_sampling_impl
     indexer_rotate_activation = indexer_rotate_activation_impl
     indexer_rope = indexer_rope_impl
-    quant_int8_infer = quant_int8_infer_impl
+    quant_infer = quant_infer_impl
     lightning_indexer = lightning_indexer_impl

@@ -78,7 +78,6 @@ def test_swiglu(shape):
         for dtype in ["bfloat16", "float16", "float32"]
     ],
 )
-@auto_switch_platform()
 @bypass_not_implemented
 def test_indexer_rotate_activation(batch_size, seq_len, num_head, head_dim, dtype):
     device = get_platform()
@@ -98,9 +97,3 @@ def test_indexer_rotate_activation(batch_size, seq_len, num_head, head_dim, dtyp
     res = MojoIndexerRotateActivation()
     res_ref = MojoIndexerRotateActivation._registry.get("torch")()
     res.forward_diff_with(res_ref, x, atol=atol, rtol=rtol)
-
-
-if __name__ == "__main__":
-
-    # pytest.main(["-s", "-v", "tests/accuracy/operators/test_activation.py::test_indexer_rotate_activation[32-2048-32-1024-float32]"])
-    pytest.main(["-s", "-v", "tests/accuracy/operators/test_activation.py::test_indexer_rotate_activation"])

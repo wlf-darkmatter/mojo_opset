@@ -5,13 +5,12 @@ import torch
 from mojo_opset.backends.ttx.kernels import lightning_indexer_impl
 from mojo_opset.backends.ttx.operators.activation import TTXIndexerRotateActivation
 from mojo_opset.backends.ttx.operators.indexer_rope import TTXIndexerRoPE
-from mojo_opset.backends.ttx.operators.linear import TTXLinear
-from mojo_opset.backends.ttx.operators.misc import TTXQuant, TTXQuantInt8
+from mojo_opset.backends.ttx.operators.misc import TTXQuantIndexer  # noqa: F401 — register TTXQuantIndexer
 from mojo_opset.backends.ttx.operators.normalization import TTXLayerNorm
-from mojo_opset.core import MojoLightningIndexer
-from mojo_opset.experimental import MojoIndexer
-from mojo_opset.utils.platform import get_platform
-
+from mojo_opset.core import MojoLightningIndexer, MojoQuantIndexer
+from mojo_opset.core.operator import MojoOperator
+from mojo_opset.experimental.operators.indexer import MojoIndexer
+from torch import nn
 
 class TTXLightningIndexer(MojoLightningIndexer):
     supported_platforms_list = ["npu"]
@@ -78,19 +77,33 @@ class TTXIndexer(MojoIndexer):
         max_batch_size: int = 128,
         max_seq_len: int = 32768,
     ):
+        # Copy all attributes from parent_instance
         self.__dict__.update(parent_instance.__dict__)
 
+        # Save original k_norm weights before replacing
         original_norm = self.k_norm
 
-        self.wq_b = TTXLinear(weight=self.wq_b.weight)
-        self.wk = TTXLinear(weight=self.wk.weight)
-        self.k_norm = TTXLayerNorm(self.head_dim)
-        self.weights_proj = TTXLinear(weight=self.weights_proj.weight)
+        # Get weights from parent_instance's nn.Linear modules
+        wq_b_weight = self.wq_b.weight.data
+        wk_weight = self.wk.weight.data
+        weights_proj_weight = self.weights_proj.weight.data
 
-        self.k_norm.weight = original_norm.weight
-        self.k_norm.bias = original_norm.bias
+        # Replace with TTX implementations
+        self.wq_b = nn.Linear(wq_b_weight.size(1), wq_b_weight.size(0), bias=False)
+        self.wq_b.weight.data = wq_b_weight
+        self.wk = nn.Linear(wk_weight.size(1), wk_weight.size(0), bias=False)
+        self.wk.weight.data = wk_weight
+        self.k_norm = TTXLayerNorm(self.head_dim)
+        self.weights_proj = nn.Linear(weights_proj_weight.size(1), weights_proj_weight.size(0), bias=False)
+        self.weights_proj.weight.data = weights_proj_weight
+
+        # Copy norm weights
+        self.k_norm.weight.data = original_norm.weight.data
+        if original_norm.bias is not None:
+            self.k_norm.bias.data = original_norm.bias.data
         self.k_norm.variance_epsilon = original_norm.variance_epsilon
 
+        # Register TTX-specific buffers
         self.register_buffer("k_cache_ttx", torch.zeros(max_batch_size, max_seq_len, self.head_dim, dtype=torch.int8), persistent=False)
         self.register_buffer(
             "k_scale_cache_ttx",
@@ -98,12 +111,11 @@ class TTXIndexer(MojoIndexer):
             persistent=False,
         )
 
+        # Replace with TTX-specific components
         self.rope = TTXIndexerRoPE()
         self.activation = TTXIndexerRotateActivation()
-        if get_platform() == "npu":
-            self.quant = TTXQuantInt8()
-        else:
-            self.quant = TTXQuant()
+
+        self.quant = MojoQuantIndexer()
         self.lightning_indexer = TTXLightningIndexer()
 
     def forward(self, x: torch.Tensor, qr: torch.Tensor, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor]):
@@ -126,6 +138,8 @@ class TTXIndexer(MojoIndexer):
 
         q_quant, q_scale = self.quant(q, None)
         k_quant, k_scale = self.quant(k, None)
+        if k_scale.dim() == 3:
+            k_scale = k_scale.amax(dim=-1)
 
         self.k_cache_ttx[:bsz, start_pos:end_pos] = k_quant
         self.k_scale_cache_ttx[:bsz, start_pos:end_pos] = k_scale
